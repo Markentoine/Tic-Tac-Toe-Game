@@ -22,12 +22,24 @@ class BoardGame
 	BORDER = '|'
 
 	def initialize(size, width, height_grid, heigth_box)
-      @grid_size = size
+      @grid_size = set_grid_size
       @width = width.odd? ? (width + 1) : width
       @height_grid = height_grid
       @heigth_box = heigth_box
       @color = set_color
       @marks = []
+	end
+
+	def set_grid_size
+    puts 'Do you want to play  a 3x3, 5x5 or 9x9 game?'
+    puts 'Please, enter your choice : 3, 5, 9'
+    answer = nil
+    loop do
+      answer = gets.chomp.to_i
+      break if [3, 5, 9].include?(answer)
+      puts 'Invalid choice'.red.blink
+    end
+    answer
 	end
 
 	def set_color
@@ -73,7 +85,7 @@ class BoardGame
 
 	def grid
 	  min_line = line((width - 2) / grid_size)
-    inside_border = ((BORDER + min_line) * 3 + BORDER)
+    inside_border = ((BORDER + min_line) * grid_size + BORDER)
     inside_border = inside_border.send(color)
     inside_line = (ANGLE + line(width - 2, '-') + ANGLE).send(color)
     part_grid = lambda { (height_grid / (grid_size * 2)).times do 
@@ -88,7 +100,7 @@ class BoardGame
   end
 
   def message_line(mark)
-    "#{' ' * ((width - 6) / (grid_size * 2))}#{mark}#{' ' * ((width - 6) / (grid_size * 2))}"
+    "#{' ' * ((width - (grid_size * 2)) / (grid_size * 2))}#{mark}#{' ' * ((width - (grid_size * 2)) / (grid_size * 2))}"
   end
 
   def marked_line(marks)
@@ -96,7 +108,7 @@ class BoardGame
     marks.each do |mark|
       result << '| '.send(color)
       mark = if mark == 'X' 
-                mark.bold.green
+               mark.bold.green
              elsif mark == 'O'
                mark.bold.red
              elsif mark == 'V'
@@ -123,29 +135,28 @@ end
 class VirtualBoard
 	attr_accessor :rows, :columns, :diagonals
 
-	ROWS_COOR = (0..2).to_a.product((0..2).to_a)
-	COLUMNS_COORD = ROWS_COOR.map(&:reverse)
-
 	def initialize(size)
     @rows = []
 	  @columns = []
 	  @diagonals = []
+    @rows_coord = (0..size - 1).to_a.product((0..size - 1).to_a)
+	  @columns_coord = @rows_coord.map(&:reverse)
     size.times do |n|
-      @rows << BoardLine.new(3, n + 1)
-      @columns << BoardLine.new(3, n + 1)
+      @rows << BoardLine.new(size, n + 1)
+      @columns << BoardLine.new(size, n + 1)
     end
     2.times do |n|
-    	@diagonals << BoardLine.new(3, n + 1)
+    	@diagonals << BoardLine.new(size, n + 1)
     end
 	end
 
 	def fill_rows(move, mark)
-    row, cell = ROWS_COOR[move - 1]
+    row, cell = @rows_coord[move - 1]
     self.rows[row].insert_mark(cell, mark)
 	end
 
 	def fill_columns(move, mark)
-    col, cell = COLUMNS_COORD[move - 1]
+    col, cell = @columns_coord[move - 1]
     self.columns[col].insert_mark(cell, mark)
 	end
 
@@ -165,9 +176,9 @@ class VirtualBoard
 	end
 
 	def fill_board(move, mark)
-     self.fill_rows(move, mark)
-     self.fill_columns(move, mark)
-     self.fill_diagonals(move, mark)
+    self.fill_rows(move, mark)
+    self.fill_columns(move, mark)
+    self.fill_diagonals(move, mark)
 	end
 
 	def one_line_complete?(mark)
@@ -382,8 +393,8 @@ class Engine
     (Player.say_numb_of_players).times do |n|
       @players << Player.new(Player::MARKS[n], (n + 1))
     end
-    @board = BoardGame.new(3, 45, 15, 2)
-    @virtual_board = VirtualBoard.new(3)
+    @board = BoardGame.new(9, 45, 15, 2)
+    @virtual_board = VirtualBoard.new(board.grid_size)
   end
 
   def prompt(message)
@@ -391,7 +402,7 @@ class Engine
   end
 
   def welcome
-    board.set_marks(['T','I','C'], ['T', 'A', 'C'], ['T', 'O', 'E'])
+    board.set_marks(['T','I','C', ' ', ' '], ['T', 'A', 'C'], ['T', 'O', 'E'], ['T','I','C', ' ', ' '], ['T','I','C', ' ', ' '])
     human_players = @players.select { |player| player.type == :human }
     if human_players.empty?
       board.display('WELCOME', 'OK, COMPUTERS!')
