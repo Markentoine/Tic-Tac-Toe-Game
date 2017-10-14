@@ -21,7 +21,7 @@ class BoardGame
 	ANGLE = '+'
 	BORDER = '|'
 
-	def initialize(size, width, height_grid, heigth_box)
+	def initialize(width, height_grid, heigth_box)
       @grid_size = set_grid_size
       @width = width.odd? ? (width + 1) : width
       @height_grid = height_grid
@@ -60,6 +60,24 @@ class BoardGame
     color
 	end
 
+	def define_inside_message(message)
+		chars = []
+		words = message.split(' ')
+		fill_chars = ->(n) { words.each { |w| chars << Array.new(n, '*') + w.chars + Array.new(n, '*') } }
+    if grid_size == 3
+      fill_chars.call(0)
+    elsif grid_size == 5
+    	chars << Array.new(grid_size, '*')
+      fill_chars.call(1)
+      chars << Array.new(grid_size, '*')
+    elsif grid_size == 9
+    	3.times { chars << Array.new(grid_size, '*')}
+    	fill_chars.call(3)
+    	3.times { chars << Array.new(grid_size, '*')}
+    end
+    chars
+  end
+
 	def set_marks(*marks)
 	  self.marks = []
     marks.each { |mark| self.marks << mark }
@@ -89,7 +107,7 @@ class BoardGame
     inside_border = inside_border.send(color)
     inside_line = (ANGLE + line(width - 2, '-') + ANGLE).send(color)
     part_grid = lambda { (height_grid / (grid_size * 2)).times do 
-     puts inside_border
+      puts inside_border
     end }
     grid_size.times do |n|
       part_grid.call
@@ -102,20 +120,22 @@ class BoardGame
   def message_line(mark)
     "#{' ' * ((width - (grid_size * 2)) / (grid_size * 2))}#{mark}#{' ' * ((width - (grid_size * 2)) / (grid_size * 2))}"
   end
+  
+  def set_mark_color(mark)
+    case mark
+    when 'X' then mark.bold.green
+    when 'O' then mark.bold.red
+    when '*' then mark.bold.light_magenta
+    else 
+      mark
+    end
+  end
 
   def marked_line(marks)
     result = []
     marks.each do |mark|
       result << '| '.send(color)
-      mark = if mark == 'X' 
-               mark.bold.green
-             elsif mark == 'O'
-               mark.bold.red
-             elsif mark == 'V'
-             	 mark.bold.cyan
-             else 
-             	 mark
-             end
+      mark = set_mark_color(mark)
       result << message_line(mark)
     end
     result << '|'.send(color)
@@ -134,8 +154,10 @@ end
 
 class VirtualBoard
 	attr_accessor :rows, :columns, :diagonals
+	attr_reader :size
 
 	def initialize(size)
+		@size = size
     @rows = []
 	  @columns = []
 	  @diagonals = []
@@ -161,18 +183,13 @@ class VirtualBoard
 	end
 
 	def fill_diagonals(move, mark)
-    if  move == 1
-      self.diagonals[0].insert_mark(0, mark)
-    elsif move == 9
-    	self.diagonals[0].insert_mark(2, mark)
-    elsif move == 5
-    	self.diagonals[0].insert_mark(1, mark)
-    	self.diagonals[1].insert_mark(1, mark)
-    elsif move == 3
-    	self.diagonals[1].insert_mark(0, mark)
-    elsif move == 7
-    	self.diagonals[1].insert_mark(2, mark)
-    end
+		moves_in_diagonal1 = (1..(size * size)).step(size + 1).to_a
+		moves_in_diagonal2 = (1..(size * size)).step(size - 1).to_a
+		if moves_in_diagonal1.include?(move)
+			self.diagonals[0].insert_mark(moves_in_diagonal1.index(move), mark)
+		elsif moves_in_diagonal2.include?(move)
+			self.diagonals[1].insert_mark(moves_in_diagonal2.index(move), mark)
+		end
 	end
 
 	def fill_board(move, mark)
@@ -224,7 +241,7 @@ class Player
   attr_reader :name, :type, :mark, :player_number
   attr_accessor :score, :stats
 
-  MARKS = ['X', 'O', 'V']
+  MARKS = ['X', 'O', '*']
 
   @@computers_names = []
   @@numb_of_players = 0
@@ -393,7 +410,7 @@ class Engine
     (Player.say_numb_of_players).times do |n|
       @players << Player.new(Player::MARKS[n], (n + 1))
     end
-    @board = BoardGame.new(9, 45, 15, 2)
+    @board = BoardGame.new(45, 15, 2)
     @virtual_board = VirtualBoard.new(board.grid_size)
   end
 
@@ -402,7 +419,7 @@ class Engine
   end
 
   def welcome
-    board.set_marks(['T','I','C', ' ', ' '], ['T', 'A', 'C'], ['T', 'O', 'E'], ['T','I','C', ' ', ' '], ['T','I','C', ' ', ' '])
+    board.set_marks(*board.define_inside_message('TIC TAC TOE'))
     human_players = @players.select { |player| player.type == :human }
     if human_players.empty?
       board.display('WELCOME', 'OK, COMPUTERS!')
@@ -478,8 +495,8 @@ class Engine
       clear_screen
       board.set_marks(*virtual_board.display_rows)
       board.display("#{player.name} CHOSE : #{move.result}", "ROUND # #{player.stats.rounds}")
-      player.stats.count_rounds
-      player.stats.record_moves(move)
+      #player.stats.count_rounds
+      #player.stats.record_moves(move)
       break if virtual_board.one_line_complete?(player.mark)
       wait(2)
       clear_screen
